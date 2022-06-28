@@ -8,6 +8,7 @@
 #include <g4detectors/PHG4SectorSubsystem.h>
 #include <g4main/PHG4Reco.h>
 #include <g4trackfastsim/PHG4TrackFastSim.h>
+//#include </eic/u/mposik/Detector1/Fun4All/coresoftware/simulation/g4simulation/g4trackfastsim/PHG4TrackFastSim.h>
 
 R__LOAD_LIBRARY(libfun4all.so)
 R__LOAD_LIBRARY(libg4testbench.so)
@@ -28,15 +29,26 @@ namespace RWELL
   //  const double nom_radius[RWELL::n_layer] = {69 - 1.6 - 2.6, 78.67};  //77 to not hit DIRC
   //  const double nom_driftgap[RWELL::n_layer] = {0.4, 0.4};
   //  const double nom_length[RWELL::n_layer] = {300.0, 300.0};
-
+/*
+  //ECCE Proposal
   const int n_layer = 3;  //tracker layers
-  //const double nom_radius[RWELL::n_layer] = {44.2, 47.4, 77.0175};
   const double nom_radius[RWELL::n_layer] = {33.14, 51., 77.0175};
   double e_length_uRwell[RWELL::n_layer] =  {40.08, 106., 197};
   double h_length_uRwell[RWELL::n_layer] = {e_length_uRwell[0], e_length_uRwell[1], 145};
   const double nom_driftgap[RWELL::n_layer] = {0.3, 0.3, 0.3};
-  //const double nom_length[RWELL::n_layer] = {140, 150, 280.0};
   const double nom_length[RWELL::n_layer] = {2*e_length_uRwell[0], 2*e_length_uRwell[1], 342.0};
+*/
+
+  //Detector-1 Sim. Campaign 1
+  const int n_layer = 2;  //tracker layers
+  const double nom_radius[RWELL::n_layer] = { 51., 77.0175};
+  double e_length_uRwell[RWELL::n_layer] =  { 106., 197};
+  double h_length_uRwell[RWELL::n_layer] = { e_length_uRwell[0], 145};
+  const double nom_driftgap[RWELL::n_layer] = { 0.3, 0.3};
+  //const double nom_length[RWELL::n_layer] = {140, 150, 280.0};
+  const double nom_length[RWELL::n_layer] = { 2*e_length_uRwell[0], 342.0};
+
+
   int subsysID = 0;
 }  //namespace RWELL
 
@@ -371,6 +383,7 @@ double Build_G4_RWell_Sup01(PHG4Reco* g4Reco,
 double RWellSetup(PHG4Reco* g4Reco,
                   int type = 1)
 {
+  cout << "Adding RWell setup" << endl;
   double radius = 0;
 
   for (int ilyr = 0; ilyr < RWELL::n_layer; ilyr++)  //RWELL trackers are registered in Build_RWELL macro
@@ -392,18 +405,25 @@ double RWellSetup(PHG4Reco* g4Reco,
                                     ilyr);                      //index
     }
 
-//    // sourav: For spatial resolution the mRwell I will use about 55 microns
-//    // (usually it is in between 40-60 microns depending on the angle of incidence of
-//    // primary tracks when mRwell are used in microTPC mode i.e drift gap of 3-4 mm) .
+    //nominal resolutions.
+    float phires = 75.0e-4; //cm
+    float lonres = 75.0e-4; //cm
+
+    std::cout << Form("RWell layr: %d \n",ilyr);
+    std::cout << Form("mRwell nominal resolutions: phires = %f, lonres = %f",phires,lonres) << std::endl;
+    std::cout << Form("nom_driftgap[%d] = %.2f cm \n",ilyr,RWELL::nom_driftgap[ilyr]);
+
     if (TRACKING::FastKalmanFilter)
     {
+      cout << "Setting uRWELL Resolutions\n";  
       TRACKING::FastKalmanFilter->add_phg4hits(string("G4HIT_") + string(Form("RWELL_%d", ilyr)),  //      const std::string& phg4hitsNames,
                                                PHG4TrackFastSim::Cylinder,                         //      const DETECTOR_TYPE phg4dettype,
                                                1. / sqrt(12.),                                     //      const float radres,
-                                               55e-4,                                              //      const float phires,
-                                               55e-4,                                              //      const float lonres,
+                                               phires,                                             //      const float phires,
+                                               lonres,                                             //      const float lonres,
                                                1,                                                  //      const float eff,
-                                               0);                                                 //      const float noise
+                                               0,                                                  //      const float noise
+                                               RWELL::nom_driftgap[ilyr]);                         //      driftgap size
       TRACKING::FastKalmanFilter->add_cylinder_state(Form("RWELL_%d", ilyr), RWELL::nom_radius[ilyr]);
       TRACKING::ProjectionNames.insert(Form("RWELL_%d", ilyr));
     }
@@ -413,20 +433,23 @@ double RWellSetup(PHG4Reco* g4Reco,
       TRACKING::FastKalmanFilterInnerTrack->add_phg4hits(string("G4HIT_") + string(Form("RWELL_%d", ilyr)),  //      const std::string& phg4hitsNames,
                                                PHG4TrackFastSim::Cylinder,                         //      const DETECTOR_TYPE phg4dettype,
                                                1. / sqrt(12.),                                     //      const float radres,
-                                               55e-4,                                              //      const float phires,
-                                               55e-4,                                              //      const float lonres,
+                                               phires,                                             //      const float phires,
+                                               lonres,                                             //      const float lonres,
                                                1,                                                  //      const float eff,
-                                               0);                                                 //      const float noise
+                                               0,                                                  //      const float noise
+                                               RWELL::nom_driftgap[ilyr]);                         //      driftgap size
     // only for layers that is close to the silicon tracker system, use in FastKalmanFilterSiliconTrack
     if (TRACKING::FastKalmanFilterSiliconTrack and RWELL::nom_radius[ilyr] < 50)
       TRACKING::FastKalmanFilterSiliconTrack->add_phg4hits(string("G4HIT_") + string(Form("RWELL_%d", ilyr)),  //      const std::string& phg4hitsNames,
                                                PHG4TrackFastSim::Cylinder,                         //      const DETECTOR_TYPE phg4dettype,
                                                1. / sqrt(12.),                                     //      const float radres,
-                                               55e-4,                                              //      const float phires,
-                                               55e-4,                                              //      const float lonres,
+                                               phires,                                             //      const float phires,
+                                               lonres,                                             //      const float lonres,
                                                1,                                                  //      const float eff,
-                                               0);                                                 //      const float noise
+                                               0,                                                  //      const float noise
+                                               RWELL::nom_driftgap[ilyr]);                         //      driftgap size
   }
+
   return radius;  //cm
 }
 

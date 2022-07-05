@@ -17,7 +17,7 @@ R__LOAD_LIBRARY(libg4detectors.so)
 namespace Enable
 {
   bool RWELL = false;
-  bool RWELL_OVERLAPCHECK = false;
+  bool RWELL_OVERLAPCHECK = true;
 }  // namespace Enable
 
 namespace RWELL
@@ -286,6 +286,7 @@ double Build_G4_RWell_Sup01(PHG4Reco* g4Reco,
   g4Reco->registerSubsystem(rwell_cyl);
   ++RWELL::subsysID;
 
+/*
   //---Support structure--
   //tube
   rsum += pcb_thickness;
@@ -373,15 +374,63 @@ double Build_G4_RWell_Sup01(PHG4Reco* g4Reco,
   rwell_cyl->OverlapCheck(OverlapCheck);
   g4Reco->registerSubsystem(rwell_cyl);
   ++RWELL::subsysID;
+*/
+  return rwellrad;
+}
+double Build_G4_RWell_AvgMat(PHG4Reco* g4Reco,
+                            double rwellrad = 80.0,
+                            double driftgap = 1.5,
+                            double length = 200.0,
+                            int index = 0)
+{
+  gSystem->Load("libfun4all");
+  gSystem->Load("libg4detectors.so");
+
+  bool OverlapCheck = Enable::OVERLAPCHECK || Enable::RWELL_OVERLAPCHECK;
+
+  //MPGD parameters (units in cm)
+  double radlen = 1.0; // X/X0%
+  double det_thickness = radlen/100.0 * 9.37;//cm, scale thickness based on Si
+
+  PHG4CylinderSubsystem* rwell_cyl;
+
+  double Shift = (RWELL::h_length_uRwell[index] - RWELL::e_length_uRwell[index])/2.0;
+  // here is our uRwell:
+
+  //Gas layer
+  rwell_cyl = new PHG4CylinderSubsystem("RWELL", index);
+  rwell_cyl->set_double_param("radius", rwellrad);
+  rwell_cyl->set_string_param("material", "G4_Ar");
+  rwell_cyl->set_double_param("thickness", driftgap);
+  rwell_cyl->set_int_param("lengthviarapidity", 0);
+  rwell_cyl->set_double_param("place_z", Shift);
+  rwell_cyl->set_double_param("length", length);
+  rwell_cyl->SetActive(1);
+  rwell_cyl->OverlapCheck(OverlapCheck);
+  g4Reco->registerSubsystem(rwell_cyl);
+  ++RWELL::subsysID;
+
+  //detector material
+  rwell_cyl = new PHG4CylinderSubsystem(Form("RWELL_Material_%d", index), RWELL::subsysID);
+  rwell_cyl->set_double_param("radius", rwellrad - det_thickness);
+  rwell_cyl->set_string_param("material", "G4_Si");
+  rwell_cyl->set_double_param("thickness", det_thickness);
+  rwell_cyl->set_int_param("lengthviarapidity", 0);
+  rwell_cyl->set_double_param("place_z", Shift);
+  rwell_cyl->set_double_param("length", length);
+  rwell_cyl->SuperDetector("RWELL");
+  rwell_cyl->SetActive(0);
+  rwell_cyl->OverlapCheck(OverlapCheck);
+  g4Reco->registerSubsystem(rwell_cyl);
+  ++RWELL::subsysID;
 
   return rwellrad;
 }
-
 //! type selects the RWell material
 //   0: bare RWell (no support structure)
 //   1: Implimentation of FIT support rings
 double RWellSetup(PHG4Reco* g4Reco,
-                  int type = 1)
+                  int type = 2)
 {
   cout << "Adding RWell setup" << endl;
   double radius = 0;
@@ -390,6 +439,7 @@ double RWellSetup(PHG4Reco* g4Reco,
   {
     if (type == 0)
     {
+      std::cout << "\n\n\nType 0\n";
       radius = Build_G4_RWell_Bare(g4Reco,                     //returns RWELL radiaus
                                    RWELL::nom_radius[ilyr],    //radius
                                    RWELL::nom_driftgap[ilyr],  //driftgap,
@@ -398,13 +448,22 @@ double RWellSetup(PHG4Reco* g4Reco,
     }
     if (type == 1)
     {
+      std::cout << "\n\n\nType 1\n";
       radius = Build_G4_RWell_Sup01(g4Reco,                     //returns RWELL radiaus
                                     RWELL::nom_radius[ilyr],    //radius
                                     RWELL::nom_driftgap[ilyr],  //driftgap,
                                     RWELL::nom_length[ilyr],    //length
                                     ilyr);                      //index
     }
-
+    if (type == 2)
+    {
+      std::cout << "\n\n\nType 2\n";
+      radius = Build_G4_RWell_AvgMat(g4Reco,                    //returns RWELL radius
+                                    RWELL::nom_radius[ilyr],    //radius
+                                    RWELL::nom_driftgap[ilyr],  //driftgap,
+                                    RWELL::nom_length[ilyr],    //length
+                                    ilyr);                      //index
+    }
     //nominal resolutions.
     float phires = 75.0e-4; //cm
     float lonres = 75.0e-4; //cm
